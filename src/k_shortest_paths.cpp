@@ -43,31 +43,30 @@ Rcpp::List k_shortest_paths_Cpp(Rcpp::DataFrame graph_df,
 
 	Graph my_graph(vertex_num, graph_df);
 
+
+  BaseVertex* start_v = my_graph.get_vertex(start_vertex_);
+  BaseVertex* end_v = my_graph.get_vertex(end_vertex_);
+
 	YenTopKShortestPathsAlg yenAlg(my_graph,
-	                               my_graph.get_vertex(start_vertex_),
-	                               my_graph.get_vertex(end_vertex_));
+                                 start_v,
+                                 end_v);
 
 	int i = 0;
 	vector<int> path_vec;
 	vector<vector<int> > results;
+	BasePath* path = 0;
 	while(yenAlg.has_next() && i < k_)
 	{
 		++i;
-		BasePath* path = yenAlg.next();
+	  path = yenAlg.next();
 		path_vec = path->PathVector();
 		results.push_back((path_vec));
 
 		if (verbose == true) {
 			path->PrintOut(Rcpp::Rcout);
 		}
-
 	}
+	delete path;
+
 	return(Rcpp::wrap(results));
-
-
-	// // Printing the result in various ways
-	// result->PrintOut(Rcpp::Rcout);
-	// Rcpp::Rcout << "Inside shortest_path(). X = " << result->PathString() << std::endl;
-
-	// return(Rcpp::wrap(result->PathString()));
 }

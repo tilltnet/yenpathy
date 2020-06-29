@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///  YenTopKShortestPathsAlg.cpp
-///  The implementation of Yen's algorithm to get the top k shortest paths 
-///  connecting a pair of vertices in a graph. 
+///  The implementation of Yen's algorithm to get the top k shortest paths
+///  connecting a pair of vertices in a graph.
 ///
 ///  @remarks <TODO: insert remarks here>
 ///
@@ -34,15 +34,17 @@ void YenTopKShortestPathsAlg::clear()
 void YenTopKShortestPathsAlg::_init()
 {
 	clear();
+  BasePath* pShortestPath = 0;
 	if (m_pSourceVertex != NULL && m_pTargetVertex != NULL)
 	{
-		BasePath* pShortestPath = get_shortest_path(m_pSourceVertex, m_pTargetVertex);
+		pShortestPath = get_shortest_path(m_pSourceVertex, m_pTargetVertex);
 		if (pShortestPath != NULL && pShortestPath->length() > 1)
 		{
 			m_quPathCandidates.insert(pShortestPath);
 			m_mpDerivationVertexIndex[pShortestPath] = m_pSourceVertex;
 		}
 	}
+	//delete pShortestPath;
 }
 
 BasePath* YenTopKShortestPathsAlg::get_shortest_path( BaseVertex* pSource, BaseVertex* pTarget )
@@ -59,29 +61,31 @@ bool YenTopKShortestPathsAlg::has_next()
 BasePath* YenTopKShortestPathsAlg::next()
 {
 	//1. Prepare for removing vertices and arcs
-	BasePath* cur_path = *(m_quPathCandidates.begin());//m_quPathCandidates.top();
-	
+	BasePath* cur_path = *(m_quPathCandidates.begin());
+
 	//m_quPathCandidates.pop();
 	m_quPathCandidates.erase(m_quPathCandidates.begin());
 	m_vResultList.push_back(cur_path);
 
 	int count = m_vResultList.size();
-	
-	BaseVertex* cur_derivation_pt = m_mpDerivationVertexIndex.find(cur_path)->second; 
+
+	BaseVertex* cur_derivation_pt = m_mpDerivationVertexIndex.find(cur_path)->second;
 	vector<BaseVertex*> sub_path_of_derivation_pt;
 	cur_path->SubPath(sub_path_of_derivation_pt, cur_derivation_pt);
 	int sub_path_length = sub_path_of_derivation_pt.size();
 
 	//2. Remove the vertices and arcs in the graph
+	BasePath* cur_result_path = 0;
+	BaseVertex* cur_succ_vertex = 0;
 	for (int i=0; i<count-1; ++i)
 	{
-		BasePath* cur_result_path = m_vResultList.at(i);
+		cur_result_path = m_vResultList.at(i);
 		vector<BaseVertex*> cur_result_sub_path_of_derivation_pt;
-		
+
 		if (!cur_result_path->SubPath(cur_result_sub_path_of_derivation_pt, cur_derivation_pt)) continue;
 
 		if (sub_path_length != cur_result_sub_path_of_derivation_pt.size()) continue;
-		
+
 		bool is_equal = true;
 		for (int i=0; i<sub_path_length; ++i)
 		{
@@ -94,7 +98,7 @@ BasePath* YenTopKShortestPathsAlg::next()
 		if (!is_equal) continue;
 
 		//
-		BaseVertex* cur_succ_vertex = cur_result_path->GetVertex(sub_path_length+1);
+		cur_succ_vertex = cur_result_path->GetVertex(sub_path_length+1);
 		m_pGraph->remove_edge(make_pair(cur_derivation_pt->getID(), cur_succ_vertex->getID()));
 	}
 
@@ -113,6 +117,7 @@ BasePath* YenTopKShortestPathsAlg::next()
 
 	//4. Recover the deleted vertices and update the cost and identify the new candidates results
 	bool is_done = false;
+	BasePath* sub_path = 0;
 	for(int i=path_length-2; i>=0 && !is_done; --i)
 	{
 		//4.1 Get the vertex to be recovered
@@ -126,7 +131,7 @@ BasePath* YenTopKShortestPathsAlg::next()
 		}
 
 		//4.3 Calculate cost using forward star form
-		BasePath* sub_path = reverse_tree.update_cost_forward(cur_recover_vertex);
+		sub_path = reverse_tree.update_cost_forward(cur_recover_vertex);
 
 		//4.4 Get one candidate result if possible
 		if (sub_path != NULL)
@@ -159,9 +164,13 @@ BasePath* YenTopKShortestPathsAlg::next()
 			}
 
 			// Rcpp::Rcout << "pre_path_list size: " << pre_path_list.size() << endl;
-			
+
 			//4.4.2 Compose a candidate
-			sub_path = new Path(pre_path_list, cost+sub_path->Weight());
+			int weight_cost = cost+sub_path->Weight();
+			delete sub_path;
+			sub_path = new Path(pre_path_list, weight_cost);
+			//unique_ptr<Path> sub_path;
+      //sub_path = make_unique<Path>(Path(pre_path_list, weight_cost));
 			// sub_path = new Path(pre_path_list, cost+sub_path->Weight()+(pre_path_list.size()*1));
 
 
@@ -199,14 +208,14 @@ BasePath* YenTopKShortestPathsAlg::next()
 	return cur_path;
 }
 
-void YenTopKShortestPathsAlg::get_shortest_paths( BaseVertex* pSource, 
+void YenTopKShortestPathsAlg::get_shortest_paths( BaseVertex* pSource,
 	BaseVertex* pTarget, int top_k, vector<BasePath*>& result_list)
 {
 	m_pSourceVertex = pSource;
 	m_pTargetVertex = pTarget;
 
 	_init();
-	int count = 0; 
+	int count = 0;
 	while (has_next() && count < top_k)
 	{
 		next();
